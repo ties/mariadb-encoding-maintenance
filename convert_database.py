@@ -1,3 +1,11 @@
+"""
+Convert a mariadb database to utf8mb4 encodings.
+
+Changes:
+    * schema collation.
+    * character set and collation for every table.
+"""
+
 import logging
 
 import os
