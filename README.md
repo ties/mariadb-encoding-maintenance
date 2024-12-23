@@ -6,3 +6,8 @@ contain some UTF-8 data.
 ```
 uv run python convert_database.py [hostname] 3306 [username] [database]
 ```
+
+**Limitations**:
+  * May fail to change the collation of some tables if they have foreign keys
+    (e.g. `Cannot change column 'user_id': used in a foreign key constraint
+    '...'`).
