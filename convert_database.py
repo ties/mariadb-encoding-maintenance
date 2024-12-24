@@ -8,6 +8,7 @@ Changes:
 
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -27,6 +28,18 @@ import mariadb
     default=False,
     help="Apply changes to database immediately",
 )
+@click.option(
+    "--prelude-sql",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to optional SQL prelude file.",
+)
+@click.option(
+    "--fixup-sql",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to optional SQL to execute after main changes (e.g. re-add foreign keys).",
+)
 @click.password_option(confirmation_prompt=False, default=os.environ.get("DB_PASSWORD"))
 def main(
     hostname: str,
@@ -36,6 +49,8 @@ def main(
     password: Optional[str] = None,
     verbose: int = 0,
     apply: bool = False,
+    prelude_sql: Optional[Path] = None,
+    fixup_sql: Optional[Path] = None,
 ):
     if verbose == 1:
         logging.basicConfig(level=logging.INFO)
@@ -66,6 +81,12 @@ def main(
 
     tables = [row[0] for row in cur]
     failed_tables = []
+
+    if prelude_sql:
+        with prelude_sql.open("r", encoding="utf-8") as f:
+            for line in f.readlines():
+                if line.strip() and not line.startswith("--"):
+                    exec_if_not_prepare(line)
 
     exec_if_not_prepare(
         f"ALTER SCHEMA {database} DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_general_ci;"
@@ -101,6 +122,12 @@ def main(
     click.echo(click.style("Failed tables:", bold=True))
     for table in failed_tables:
         click.echo(click.style(f"    - {table}", fg="red"))
+
+    if fixup_sql:
+        with fixup_sql.open("r", encoding="utf-8") as f:
+            for line in f.readlines():
+                if line.strip() and not line.startswith("--"):
+                    exec_if_not_prepare(line)
 
     exec_if_not_prepare("SET SESSION FOREIGN_KEY_CHECKS = 1")
     exec_if_not_prepare("UNLOCK TABLES")
